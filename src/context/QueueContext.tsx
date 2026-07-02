@@ -55,7 +55,8 @@ interface QueueContextType {
   excluirFuncionario: (funcId: string) => void;
   
   // Super Admin Operations
-  adicionarEstabelecimento: (nome: string, slug: string) => { success: boolean; error?: string };
+  adicionarEstabelecimento: (nome: string, slug: string, adminUser: string, adminPass: string) => { success: boolean; error?: string };
+  excluirEstabelecimento: (estId: string) => void;
   resetarSistema: () => void;
 }
 
@@ -467,11 +468,17 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // SUPER ADMIN OPERATIONS
-  const adicionarEstabelecimento = (nome: string, slug: string) => {
+  const adicionarEstabelecimento = (nome: string, slug: string, adminUser: string, adminPass: string) => {
     const cleanedSlug = slug.toLowerCase().replace(/[^a-z0-9-_]/g, '');
     const exists = estabelecimentos.some(e => e.slug === cleanedSlug);
     if (exists) {
       return { success: false, error: 'Já existe um estabelecimento com esta URL slug.' };
+    }
+
+    const cleanedUser = adminUser.trim().toLowerCase();
+    const userExists = funcionarios.some(f => f.username === cleanedUser);
+    if (userExists) {
+      return { success: false, error: 'Este nome de usuário administrador já está em uso.' };
     }
 
     const newId = `est-${Date.now()}`;
@@ -492,9 +499,30 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       tempoToleranciaChamadoMinutos: 5
     };
 
+    const newAdmin: Funcionario = {
+      id: `f-${Date.now()}`,
+      estabelecimento_id: newId,
+      nome: `Administrador ${nome}`,
+      username: cleanedUser,
+      senha_hash: adminPass,
+      cargo: 'admin',
+      permissao: ['admin']
+    };
+
     setEstabelecimentos(prev => [...prev, newEst]);
     setConfiguracoesFila(prev => [...prev, newConfig]);
+    setFuncionarios(prev => [...prev, newAdmin]);
     return { success: true };
+  };
+
+  const excluirEstabelecimento = (estId: string) => {
+    setEstabelecimentos(prev => prev.filter(e => e.id !== estId));
+    setFuncionarios(prev => prev.filter(f => f.estabelecimento_id !== estId));
+    setMesas(prev => prev.filter(m => m.estabelecimento_id !== estId));
+    setFilaClientes(prev => prev.filter(c => c.estabelecimento_id !== estId));
+    setConfiguracoesFila(prev => prev.filter(c => c.estabelecimento_id !== estId));
+    setChamados(prev => prev.filter(ch => ch.estabelecimento_id !== estId));
+    setHistoricoAtendimentos(prev => prev.filter(h => h.estabelecimento_id !== estId));
   };
 
   const resetarSistema = () => {
@@ -540,6 +568,7 @@ export const QueueProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       adicionarFuncionario,
       excluirFuncionario,
       adicionarEstabelecimento,
+      excluirEstabelecimento,
       resetarSistema
     }}>
       {children}

@@ -9,7 +9,8 @@ import {
   Users, 
   Layers, 
   CheckCircle, 
-  XCircle
+  XCircle,
+  Trash2
 } from 'lucide-react';
 
 export const PainelSuperAdmin: React.FC = () => {
@@ -19,6 +20,7 @@ export const PainelSuperAdmin: React.FC = () => {
     logout, 
     estabelecimentos, 
     adicionarEstabelecimento,
+    excluirEstabelecimento,
     mesas,
     filaClientes,
     resetarSistema
@@ -26,6 +28,8 @@ export const PainelSuperAdmin: React.FC = () => {
 
   const [nome, setNome] = useState('');
   const [slug, setSlug] = useState('');
+  const [adminUser, setAdminUser] = useState('');
+  const [adminPass, setAdminPass] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -45,11 +49,18 @@ export const PainelSuperAdmin: React.FC = () => {
     setError(null);
     setSuccess(null);
 
-    const result = adicionarEstabelecimento(nome, slug);
+    if (!adminUser.trim() || !adminPass.trim()) {
+      setError('Por favor, defina o usuário e a senha do administrador.');
+      return;
+    }
+
+    const result = adicionarEstabelecimento(nome, slug, adminUser, adminPass);
     if (result.success) {
       setSuccess(`Estabelecimento "${nome}" cadastrado com sucesso!`);
       setNome('');
       setSlug('');
+      setAdminUser('');
+      setAdminPass('');
     } else {
       setError(result.error || 'Erro ao registrar.');
     }
@@ -197,6 +208,34 @@ export const PainelSuperAdmin: React.FC = () => {
                 </span>
               </div>
 
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Usuário Admin do Estabelecimento
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ex: admin-forno"
+                  value={adminUser}
+                  onChange={e => setAdminUser(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Senha Admin do Estabelecimento
+                </label>
+                <input
+                  type="password"
+                  placeholder="Defina a senha"
+                  value={adminPass}
+                  onChange={e => setAdminPass(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
+                />
+              </div>
+
               <button
                 type="submit"
                 className="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 cursor-pointer"
@@ -236,6 +275,7 @@ export const PainelSuperAdmin: React.FC = () => {
                     <th className="py-3 px-2">Mesas</th>
                     <th className="py-3 px-2">Status</th>
                     <th className="py-3 px-2">Data Adesão</th>
+                    <th className="py-3 px-2 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -244,7 +284,7 @@ export const PainelSuperAdmin: React.FC = () => {
                     return (
                       <tr key={est.id} className="hover:bg-slate-800/40">
                         <td className="py-3.5 px-2 font-bold text-white">{est.nome}</td>
-                        <td className="py-3.5 px-2 font-mono text-indigo-400">/r/{est.slug}</td>
+                        <td className="py-3.5 px-2 font-mono text-indigo-400 font-bold">/r/{est.slug}</td>
                         <td className="py-3.5 px-2 text-slate-300 font-semibold">{estMesasCount} mesas</td>
                         <td className="py-3.5 px-2">
                           <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
@@ -256,6 +296,19 @@ export const PainelSuperAdmin: React.FC = () => {
                         </td>
                         <td className="py-3.5 px-2 text-slate-500 font-medium">
                           {new Date(est.criado_em).toLocaleDateString([], { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        </td>
+                        <td className="py-3.5 px-2 text-right">
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Tem certeza que deseja excluir permanentemente o estabelecimento "${est.nome}" e TODOS os seus funcionários, mesas e fila?`)) {
+                                excluirEstabelecimento(est.id);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all cursor-pointer inline-flex items-center"
+                            title="Excluir Estabelecimento"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     );
