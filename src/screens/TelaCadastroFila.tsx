@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQueue } from '../context/QueueContext';
 import { Users, Phone, User, MessageSquare, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export const TelaCadastroFila: React.FC = () => {
-  const { adicionarClienteNaFila, setActiveRole } = useQueue();
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  const { adicionarClienteNaFila, getEstablishmentBySlug } = useQueue();
   
   const [nome, setNome] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [quantidade, setQuantidade] = useState(2);
   
-  // Custom quick observation toggles
+  // Toggles
   const [comCrianca, setComCrianca] = useState(false);
   const [cadeirante, setCadeirante] = useState(false);
   const [carrinhoBebe, setCarrinhoBebe] = useState(false);
@@ -17,11 +20,28 @@ export const TelaCadastroFila: React.FC = () => {
   const [areaInterna, setAreaInterna] = useState(false);
   const [customObs, setCustomObs] = useState('');
 
+  const establishment = slug ? getEstablishmentBySlug(slug) : undefined;
+
+  if (!establishment) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center font-sans">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200 shadow-lg space-y-4">
+          <h2 className="text-xl font-bold text-slate-800">Estabelecimento não encontrado</h2>
+          <p className="text-xs text-slate-500">Verifique a URL e tente novamente.</p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-4 py-2 bg-brand-500 text-white rounded-xl text-xs font-bold"
+          >
+            Ir para Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const handleGuestsChange = (value: number) => {
     setQuantidade(Math.max(1, Math.min(15, value)));
   };
-
-
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value;
@@ -44,7 +64,6 @@ export const TelaCadastroFila: React.FC = () => {
     e.preventDefault();
     if (!nome.trim() || !whatsapp.trim()) return;
 
-    // Build notes string from toggles
     const notesArray: string[] = [];
     if (comCrianca) notesArray.push('Precisa de Cadeirão');
     if (cadeirante) notesArray.push('Cadeirante');
@@ -55,19 +74,28 @@ export const TelaCadastroFila: React.FC = () => {
 
     const finalNotes = notesArray.join(', ');
 
-    adicionarClienteNaFila(nome.trim(), getDisplayWhatsapp(), quantidade, finalNotes);
+    const newClient = adicionarClienteNaFila(
+      establishment.id, 
+      nome.trim(), 
+      getDisplayWhatsapp(), 
+      quantidade, 
+      finalNotes
+    );
+
+    // Redirect to real tracking URL
+    navigate(`/r/${slug}/fila/${newClient.id}`);
   };
 
   return (
-    <div className="max-w-md mx-auto py-6 px-4 space-y-6 animate-in fade-in duration-300">
+    <div className="max-w-md mx-auto py-12 px-4 space-y-6 animate-in fade-in duration-300 font-sans">
       
-      {/* Back button to simulated scanner */}
+      {/* Back button */}
       <button
-        onClick={() => setActiveRole('recepcao')}
-        className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-700 text-xs font-semibold cursor-pointer"
+        onClick={() => navigate('/')}
+        className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-700 text-xs font-semibold cursor-pointer"
       >
         <ArrowLeft className="w-3.5 h-3.5" />
-        Voltar ao Portal
+        Voltar para Home
       </button>
 
       <div className="bg-white p-6 md:p-8 rounded-3xl border border-slate-200/80 shadow-md space-y-6">
@@ -78,7 +106,7 @@ export const TelaCadastroFila: React.FC = () => {
             Cadastrar na Fila
           </h2>
           <p className="text-xs text-slate-400">
-            Preencha seus dados para receber notificações sobre sua mesa
+            {establishment.nome} — Entre na fila e receba sua chamada
           </p>
         </div>
 
@@ -91,14 +119,14 @@ export const TelaCadastroFila: React.FC = () => {
               Seu Nome
             </label>
             <div className="relative">
-              <User className="absolute left-3.5 top-3 w-4.5 h-4.5 text-slate-400" />
+              <User className="absolute left-3 top-3 w-4.5 h-4.5 text-slate-400" />
               <input
                 type="text"
                 placeholder="Ex: João Silva"
                 value={nome}
                 onChange={e => setNome(e.target.value)}
                 required
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-2xl text-sm font-semibold outline-hidden transition-all placeholder:text-slate-400"
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-2xl text-xs font-semibold outline-hidden transition-all placeholder:text-slate-400 text-slate-700"
               />
             </div>
           </div>
@@ -109,14 +137,14 @@ export const TelaCadastroFila: React.FC = () => {
               WhatsApp
             </label>
             <div className="relative">
-              <Phone className="absolute left-3.5 top-3 w-4.5 h-4.5 text-slate-400" />
+              <Phone className="absolute left-3 top-3 w-4.5 h-4.5 text-slate-400" />
               <input
                 type="text"
                 placeholder="Ex: (11) 99999-9999"
                 value={getDisplayWhatsapp()}
                 onChange={handlePhoneChange}
                 required
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-2xl text-sm font-semibold outline-hidden transition-all placeholder:text-slate-400"
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-2xl text-xs font-semibold outline-hidden transition-all placeholder:text-slate-400 text-slate-700"
               />
             </div>
           </div>
@@ -231,7 +259,7 @@ export const TelaCadastroFila: React.FC = () => {
                 placeholder="Ex: Aniversariante do dia..."
                 value={customObs}
                 onChange={e => setCustomObs(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-xl text-xs outline-hidden transition-all"
+                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-brand-500 rounded-xl text-xs outline-hidden transition-all text-slate-700"
               />
             </div>
           </div>

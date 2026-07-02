@@ -1,40 +1,64 @@
 import React from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQueue } from '../context/QueueContext';
 import { Clock, Users, Bell, Sparkles, XCircle, LogOut } from 'lucide-react';
 
-
 export const TelaAcompanhamentoFila: React.FC = () => {
+  const { slug, clienteId } = useParams<{ slug: string; clienteId: string }>();
+  const navigate = useNavigate();
+  
   const { 
-    activeClient, 
-    selectActiveClient,
     filaClientes, 
     calcularTempoEspera, 
-    removerClienteDaFila 
+    removerClienteDaFila,
+    getEstablishmentBySlug
   } = useQueue();
 
-  if (!activeClient) {
+  const establishment = slug ? getEstablishmentBySlug(slug) : undefined;
+  
+  if (!establishment) {
     return (
-      <div className="max-w-md mx-auto py-12 px-4 text-center space-y-4">
-        <p className="text-sm text-slate-500">Nenhum cliente ativo selecionado.</p>
-        <button
-          onClick={() => selectActiveClient(null)}
-          className="px-4 py-2 bg-brand-500 text-white rounded-xl text-xs font-bold"
-        >
-          Voltar
-        </button>
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center font-sans">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200 shadow-lg space-y-4">
+          <h2 className="text-xl font-bold text-slate-800">Estabelecimento não encontrado</h2>
+          <p className="text-xs text-slate-500 font-medium">Verifique a URL e tente novamente.</p>
+        </div>
       </div>
     );
   }
 
-  // Find fresh copy of client from global state to ensure real-time updates
-  const client = filaClientes.find(c => c.id === activeClient.id) || activeClient;
+  // Find fresh copy of client from global state
+  const client = filaClientes.find(
+    c => c.id === clienteId && c.estabelecimento_id === establishment.id
+  );
+
+  if (!client) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center font-sans">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200 shadow-lg space-y-4">
+          <h2 className="text-xl font-bold text-slate-800">Sessão da fila não encontrada</h2>
+          <p className="text-xs text-slate-500">
+            Você pode ter sido removido ou seu cadastro expirou. Por favor, faça um novo cadastro.
+          </p>
+          <button
+            onClick={() => navigate(`/r/${slug}/cadastro`)}
+            className="w-full py-2 bg-brand-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+          >
+            Fazer Novo Cadastro
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Calculate actual position (how many "aguardando" clients are ahead + 1)
-  const waitingList = filaClientes.filter(c => c.status === 'aguardando');
+  const waitingList = filaClientes.filter(
+    c => c.estabelecimento_id === establishment.id && c.status === 'aguardando'
+  );
   const clientIndex = waitingList.findIndex(c => c.id === client.id);
   const position = clientIndex !== -1 ? clientIndex + 1 : 0;
   
-  const estimatedTime = calcularTempoEspera(client.id);
+  const estimatedTime = calcularTempoEspera(establishment.id, client.id);
 
   const getStatusDisplay = () => {
     switch (client.status) {
@@ -81,7 +105,6 @@ export const TelaAcompanhamentoFila: React.FC = () => {
       case 'chamado':
         return (
           <div className="space-y-6 text-center">
-            {/* Pulsing bell animation */}
             <div className="relative inline-flex items-center justify-center p-1 bg-amber-500/10 rounded-full border border-amber-500/20">
               <div className="w-24 h-24 rounded-full bg-amber-500/25 flex items-center justify-center animate-bounce">
                 <Bell className="w-10 h-10 text-amber-600 animate-pulse-slow" />
@@ -168,9 +191,9 @@ export const TelaAcompanhamentoFila: React.FC = () => {
   };
 
   return (
-    <div className="max-w-md mx-auto py-6 px-4 space-y-6 animate-in fade-in duration-300">
+    <div className="max-w-md mx-auto py-12 px-4 space-y-6 animate-in fade-in duration-300 font-sans">
       
-      {/* Top action to simulate closing mobile portal */}
+      {/* Top details */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5 text-xs text-slate-400 font-semibold">
           <Users className="w-3.5 h-3.5 text-slate-400" />
@@ -178,11 +201,11 @@ export const TelaAcompanhamentoFila: React.FC = () => {
         </div>
         
         <button
-          onClick={() => selectActiveClient(null)}
+          onClick={() => navigate(`/r/${slug}/cadastro`)}
           className="inline-flex items-center gap-1 text-slate-400 hover:text-slate-600 text-xs font-bold transition-all cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
-          Sair Celular
+          Sair
         </button>
       </div>
 
@@ -203,16 +226,6 @@ export const TelaAcompanhamentoFila: React.FC = () => {
             </button>
           </div>
         )}
-      </div>
-
-      {/* Simulator Info Box */}
-      <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-[11px] text-slate-500 space-y-2">
-        <p className="font-bold text-slate-700">💡 Como testar no Simulador:</p>
-        <p>
-          1. Deixe esta tela de celular aberta.<br />
-          2. Abra uma nova aba ou mude o perfil do simulador acima para <span className="font-bold">Recepção</span> ou <span className="font-bold">Garçom</span>.<br />
-          3. Libere uma mesa e chame este cliente para ver o status mudar automaticamente.
-        </p>
       </div>
 
     </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQueue } from '../context/QueueContext';
 import { 
   Users, 
@@ -12,22 +13,45 @@ import {
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
-  const { filaClientes, mesas, activeRole } = useQueue();
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  const { filaClientes, mesas, sessionUser, getEstablishmentBySlug } = useQueue();
 
-  const totalAguardando = filaClientes.filter(c => c.status === 'aguardando').length;
-  const totalChamados = filaClientes.filter(c => c.status === 'chamado' || c.status === 'chegou').length;
-  const totalMesasProntas = mesas.filter(m => m.status_atual === 'pronta').length;
-  const totalMesasOcupadas = mesas.filter(m => m.status_atual === 'ocupada').length;
-  const totalMesasPreparo = mesas.filter(m => m.status_atual === 'em_preparo').length;
+  const establishment = slug ? getEstablishmentBySlug(slug) : undefined;
+  const estId = establishment?.id || '';
+
+  // Segregate counters by establishment ID
+  const totalAguardando = filaClientes.filter(
+    c => c.estabelecimento_id === estId && c.status === 'aguardando'
+  ).length;
+  
+  const totalChamados = filaClientes.filter(
+    c => c.estabelecimento_id === estId && (c.status === 'chamado' || c.status === 'chegou')
+  ).length;
+
+  const totalMesasProntas = mesas.filter(
+    m => m.estabelecimento_id === estId && m.status_atual === 'pronta'
+  ).length;
+
+  const totalMesasOcupadas = mesas.filter(
+    m => m.estabelecimento_id === estId && m.status_atual === 'ocupada'
+  ).length;
+
+  const totalMesasPreparo = mesas.filter(
+    m => m.estabelecimento_id === estId && m.status_atual === 'em_preparo'
+  ).length;
 
   const getRoleHeader = () => {
-    switch (activeRole) {
+    if (!sessionUser) {
+      return { title: 'Acesso Restrito', desc: 'Faça login para acessar', icon: Activity, bg: 'from-slate-650 to-slate-800' };
+    }
+    switch (sessionUser.cargo) {
       case 'recepcao':
-        return { title: 'Painel da Recepção', desc: 'Atendimento e Fila', icon: UserCheck, bg: 'from-indigo-600 to-blue-500' };
+        return { title: 'Fila & Atendimento', desc: 'Painel da Recepção', icon: UserCheck, bg: 'from-indigo-600 to-blue-500' };
       case 'garcom':
-        return { title: 'Painel do Garçom', desc: 'Gerenciamento de Mesas', icon: ChefHat, bg: 'from-amber-600 to-orange-500' };
+        return { title: 'Mapa de Mesas', desc: 'Painel do Garçom', icon: ChefHat, bg: 'from-amber-600 to-orange-500' };
       case 'admin':
-        return { title: 'Administração', desc: 'Configurações e Relatórios', icon: ShieldAlert, bg: 'from-rose-600 to-red-500' };
+        return { title: 'Gestão Geral', desc: 'Administração do Local', icon: ShieldAlert, bg: 'from-rose-600 to-red-500' };
       default:
         return { title: 'Painel Geral', desc: 'Visão de Equipe', icon: Activity, bg: 'from-slate-600 to-slate-800' };
     }
@@ -37,7 +61,7 @@ export const Sidebar: React.FC = () => {
   const Icon = currentRole.icon;
 
   return (
-    <aside className="w-full lg:w-64 shrink-0 bg-white border-b lg:border-b-0 lg:border-r border-slate-200/80 p-5 flex flex-col justify-between gap-6">
+    <aside className="w-full lg:w-64 shrink-0 bg-white border-b lg:border-b-0 lg:border-r border-slate-200/80 p-5 flex flex-col justify-between gap-6 font-sans">
       <div className="space-y-6">
         
         {/* Profile Card Header */}
@@ -73,7 +97,7 @@ export const Sidebar: React.FC = () => {
             <div className="bg-amber-50/50 border border-amber-100 p-3 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-2 text-amber-800">
                 <Layers className="w-4 h-4 text-amber-600" />
-                <span className="text-xs font-semibold">Chamados ativos</span>
+                <span className="text-xs font-semibold">Chamados Ativos</span>
               </div>
               <span className="bg-amber-100 text-amber-800 text-xs font-extrabold px-2 py-0.5 rounded-lg">
                 {totalChamados}
@@ -114,15 +138,34 @@ export const Sidebar: React.FC = () => {
 
       </div>
 
+      {/* Navigation shortcuts inside sidebar */}
+      {sessionUser && sessionUser.cargo === 'admin' && (
+        <div className="space-y-2 border-t border-slate-100 pt-4 mb-2">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Permissões Admin</span>
+          <button
+            onClick={() => navigate(`/r/${slug}/recepcao`)}
+            className="w-full text-left py-2 px-3 hover:bg-slate-50 text-slate-600 hover:text-slate-800 rounded-lg text-xs font-semibold transition-all cursor-pointer block border border-transparent hover:border-slate-200"
+          >
+            Acessar Recepção
+          </button>
+          <button
+            onClick={() => navigate(`/r/${slug}/garcom`)}
+            className="w-full text-left py-2 px-3 hover:bg-slate-50 text-slate-600 hover:text-slate-800 rounded-lg text-xs font-semibold transition-all cursor-pointer block border border-transparent hover:border-slate-200"
+          >
+            Acessar Garçom
+          </button>
+        </div>
+      )}
+
       {/* Footer Info */}
       <div className="text-[10px] text-slate-400 font-medium border-t border-slate-100 pt-4 flex flex-col gap-1 px-1">
         <p className="flex justify-between">
           <span>Estabelecimento ID:</span>
-          <span className="font-mono text-slate-600">GP-100</span>
+          <span className="font-mono text-slate-600">{establishment?.id || 'N/A'}</span>
         </p>
         <p className="flex justify-between">
           <span>Modo de Operação:</span>
-          <span className="text-emerald-600 font-bold">Local Persistente</span>
+          <span className="text-emerald-600 font-bold">SaaS Separado</span>
         </p>
       </div>
     </aside>

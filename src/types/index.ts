@@ -1,13 +1,20 @@
-export interface Restaurante {
+export interface Estabelecimento {
   id: string;
   nome: string;
-  slug: string;
+  slug: string; // ex: 'gourmet-prime', 'burgers-place'
+  status: 'ativo' | 'inativo';
+  criado_em: string;
 }
+
+export type CargoFuncionario = 'recepcao' | 'garcom' | 'admin' | 'super_admin';
 
 export interface Funcionario {
   id: string;
+  estabelecimento_id: string | null; // null se cargo for super_admin
   nome: string;
-  cargo: 'recepcao' | 'garcom' | 'admin';
+  username: string; // Login do funcionário
+  senha_hash: string; // Senha (simulada em texto para teste local)
+  cargo: CargoFuncionario;
   permissao: string[];
 }
 
@@ -15,7 +22,7 @@ export type StatusMesa = 'livre' | 'ocupada' | 'conta_solicitada' | 'em_pagament
 
 export interface Mesa {
   id: string;
-  restaurante_id: string;
+  estabelecimento_id: string; // SaaS tenant identification
   numero_mesa: string;
   nome_ou_identificacao: string;
   capacidade_maxima: number;
@@ -24,7 +31,6 @@ export interface Mesa {
   observacoes?: string;
   criado_em: string;
   atualizado_em: string;
-  // Campos adicionais do MVP
   capacidade_ideal?: number; 
 }
 
@@ -32,11 +38,11 @@ export type StatusCliente = 'aguardando' | 'chamado' | 'chegou' | 'sentado' | 'c
 
 export interface FilaCliente {
   id: string;
-  restaurante_id: string;
+  estabelecimento_id: string; // SaaS tenant identification
   nome_cliente: string;
   whatsapp: string;
   quantidade_pessoas: number;
-  observacoes: string; // ex: 'criança, cadeirante, carrinho de bebê, área externa'
+  observacoes: string; // ex: 'cadeirante, varanda'
   status: StatusCliente;
   horario_entrada: string;
   horario_chamada?: string;
@@ -49,6 +55,7 @@ export interface FilaCliente {
 
 export interface Chamado {
   id: string;
+  estabelecimento_id: string; // SaaS tenant identification
   cliente_id: string;
   mesa_id: string;
   numero_mesa: string;
@@ -62,6 +69,7 @@ export interface Chamado {
 }
 
 export interface ConfiguracoesFila {
+  estabelecimento_id: string; // SaaS tenant identification
   permitir2em4: boolean;
   permitir4em6: boolean;
   permitir6em8: boolean;
@@ -71,6 +79,7 @@ export interface ConfiguracoesFila {
 
 export interface HistoricoAtendimento {
   id: string;
+  estabelecimento_id: string; // SaaS tenant identification
   cliente_id: string;
   mesa_id: string;
   numero_mesa: string;

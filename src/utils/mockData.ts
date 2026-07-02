@@ -1,21 +1,114 @@
-import type { Mesa, FilaCliente, Funcionario, ConfiguracoesFila, HistoricoAtendimento } from '../types';
+import type { 
+  Mesa, 
+  FilaCliente, 
+  Funcionario, 
+  ConfiguracoesFila, 
+  HistoricoAtendimento,
+  Estabelecimento 
+} from '../types';
 
-
-export const mockRestauranteId = 'rest-123';
-
-export const initialFuncionarios: Funcionario[] = [
-  { id: 'f-1', nome: 'Clara Santos', cargo: 'recepcao', permissao: ['fila', 'chamados'] },
-  { id: 'f-2', nome: 'Felipe Souza', cargo: 'garcom', permissao: ['mesas'] },
-  { id: 'f-3', nome: 'Renato Silva', cargo: 'admin', permissao: ['all'] },
+export const initialEstabelecimentos: Estabelecimento[] = [
+  {
+    id: 'est-1',
+    nome: 'Gourmet Prime',
+    slug: 'gourmet-prime',
+    status: 'ativo',
+    criado_em: new Date().toISOString()
+  },
+  {
+    id: 'est-2',
+    nome: 'Clinica Vitta',
+    slug: 'clinica-vitta',
+    status: 'ativo',
+    criado_em: new Date().toISOString()
+  },
+  {
+    id: 'est-3',
+    nome: 'Burger & Fries',
+    slug: 'burger-fries',
+    status: 'ativo',
+    criado_em: new Date().toISOString()
+  }
 ];
 
-export const initialConfiguracoesFila: ConfiguracoesFila = {
-  permitir2em4: true,
-  permitir4em6: true,
-  permitir6em8: true,
-  diferencaMaximaGrupoMesa: 2,
-  tempoToleranciaChamadoMinutos: 5,
-};
+export const initialFuncionarios: Funcionario[] = [
+  // Super Admin (SaaS Owner)
+  { 
+    id: 'f-0', 
+    estabelecimento_id: null, 
+    nome: 'Dono do Sistema', 
+    username: 'superadmin', 
+    senha_hash: 'admin123', 
+    cargo: 'super_admin', 
+    permissao: ['all'] 
+  },
+  // Gourmet Prime Staff
+  { 
+    id: 'f-1', 
+    estabelecimento_id: 'est-1', 
+    nome: 'Clara Santos', 
+    username: 'clara', 
+    senha_hash: '123456', 
+    cargo: 'recepcao', 
+    permissao: ['recepcao'] 
+  },
+  { 
+    id: 'f-2', 
+    estabelecimento_id: 'est-1', 
+    nome: 'Felipe Souza', 
+    username: 'felipe', 
+    senha_hash: '123456', 
+    cargo: 'garcom', 
+    permissao: ['garcom'] 
+  },
+  { 
+    id: 'f-3', 
+    estabelecimento_id: 'est-1', 
+    nome: 'Renato Silva', 
+    username: 'renato', 
+    senha_hash: '123456', 
+    cargo: 'admin', 
+    permissao: ['admin'] 
+  },
+  // Clinica Vitta Staff
+  { 
+    id: 'f-4', 
+    estabelecimento_id: 'est-2', 
+    nome: 'Juliana Medeiros', 
+    username: 'juliana', 
+    senha_hash: '123456', 
+    cargo: 'recepcao', 
+    permissao: ['recepcao'] 
+  },
+  { 
+    id: 'f-5', 
+    estabelecimento_id: 'est-2', 
+    nome: 'Dr. Arthur Costa', 
+    username: 'arthur', 
+    senha_hash: '123456', 
+    cargo: 'admin', 
+    permissao: ['admin'] 
+  }
+];
+
+export const initialConfiguracoesFila: ConfiguracoesFila[] = [
+  {
+    estabelecimento_id: 'est-1',
+    permitir2em4: true,
+    permitir4em6: true,
+    permitir6em8: true,
+    diferencaMaximaGrupoMesa: 2,
+    tempoToleranciaChamadoMinutos: 5,
+  },
+  {
+    estabelecimento_id: 'est-2',
+    permitir2em4: false,
+    permitir4em6: true,
+    permitir6em8: false,
+    diferencaMaximaGrupoMesa: 1,
+    tempoToleranciaChamadoMinutos: 10,
+  }
+];
 
 // Helper for generating relative times in ISO format
 const getRelativeTimeISO = (minutesAgo: number): string => {
@@ -25,9 +118,10 @@ const getRelativeTimeISO = (minutesAgo: number): string => {
 };
 
 export const initialMesas: Mesa[] = [
+  // Gourmet Prime (Mesa 1 to 10)
   {
     id: 'm-1',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     numero_mesa: '1',
     nome_ou_identificacao: 'Mesa 1',
     capacidade_maxima: 2,
@@ -40,7 +134,7 @@ export const initialMesas: Mesa[] = [
   },
   {
     id: 'm-2',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     numero_mesa: '2',
     nome_ou_identificacao: 'Mesa 2',
     capacidade_maxima: 2,
@@ -53,7 +147,7 @@ export const initialMesas: Mesa[] = [
   },
   {
     id: 'm-3',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     numero_mesa: '3',
     nome_ou_identificacao: 'Mesa 3',
     capacidade_maxima: 4,
@@ -66,7 +160,7 @@ export const initialMesas: Mesa[] = [
   },
   {
     id: 'm-4',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     numero_mesa: '4',
     nome_ou_identificacao: 'Mesa 4',
     capacidade_maxima: 4,
@@ -79,7 +173,7 @@ export const initialMesas: Mesa[] = [
   },
   {
     id: 'm-5',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     numero_mesa: '5',
     nome_ou_identificacao: 'Mesa 5',
     capacidade_maxima: 4,
@@ -92,7 +186,7 @@ export const initialMesas: Mesa[] = [
   },
   {
     id: 'm-6',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     numero_mesa: '6',
     nome_ou_identificacao: 'Mesa 6',
     capacidade_maxima: 6,
@@ -105,7 +199,7 @@ export const initialMesas: Mesa[] = [
   },
   {
     id: 'm-7',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     numero_mesa: '7',
     nome_ou_identificacao: 'Mesa 7',
     capacidade_maxima: 6,
@@ -118,7 +212,7 @@ export const initialMesas: Mesa[] = [
   },
   {
     id: 'm-8',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     numero_mesa: '8',
     nome_ou_identificacao: 'Mesa 8',
     capacidade_maxima: 8,
@@ -131,7 +225,7 @@ export const initialMesas: Mesa[] = [
   },
   {
     id: 'm-9',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     numero_mesa: '9',
     nome_ou_identificacao: 'Mesa 9',
     capacidade_maxima: 2,
@@ -144,7 +238,7 @@ export const initialMesas: Mesa[] = [
   },
   {
     id: 'm-10',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     numero_mesa: '10',
     nome_ou_identificacao: 'Mesa 10',
     capacidade_maxima: 4,
@@ -155,12 +249,41 @@ export const initialMesas: Mesa[] = [
     criado_em: getRelativeTimeISO(200),
     atualizado_em: getRelativeTimeISO(1),
   },
+
+  // Clinica Vitta (Consultório 1 to 3)
+  {
+    id: 'm-201',
+    estabelecimento_id: 'est-2',
+    numero_mesa: '1',
+    nome_ou_identificacao: 'Consultório 1',
+    capacidade_maxima: 2,
+    capacidade_ideal: 1,
+    status_atual: 'livre',
+    setor_ou_area: 'Pediatria',
+    observacoes: '',
+    criado_em: getRelativeTimeISO(100),
+    atualizado_em: getRelativeTimeISO(20),
+  },
+  {
+    id: 'm-202',
+    estabelecimento_id: 'est-2',
+    numero_mesa: '2',
+    nome_ou_identificacao: 'Consultório 2',
+    capacidade_maxima: 2,
+    capacidade_ideal: 1,
+    status_atual: 'ocupada',
+    setor_ou_area: 'Geral',
+    observacoes: '',
+    criado_em: getRelativeTimeISO(100),
+    atualizado_em: getRelativeTimeISO(10),
+  }
 ];
 
 export const initialFilaClientes: FilaCliente[] = [
+  // Gourmet Prime Waitlist
   {
     id: 'c-1',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     nome_cliente: 'João Silva',
     whatsapp: '11999998888',
     quantidade_pessoas: 4,
@@ -172,7 +295,7 @@ export const initialFilaClientes: FilaCliente[] = [
   },
   {
     id: 'c-2',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     nome_cliente: 'Maria Souza',
     whatsapp: '11988887777',
     quantidade_pessoas: 2,
@@ -184,7 +307,7 @@ export const initialFilaClientes: FilaCliente[] = [
   },
   {
     id: 'c-3',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     nome_cliente: 'Pedro Santos',
     whatsapp: '11977776666',
     quantidade_pessoas: 6,
@@ -196,7 +319,7 @@ export const initialFilaClientes: FilaCliente[] = [
   },
   {
     id: 'c-4',
-    restaurante_id: mockRestauranteId,
+    estabelecimento_id: 'est-1',
     nome_cliente: 'Ana Oliveira',
     whatsapp: '11966665555',
     quantidade_pessoas: 2,
@@ -209,51 +332,26 @@ export const initialFilaClientes: FilaCliente[] = [
     criado_em: getRelativeTimeISO(45),
     atualizado_em: getRelativeTimeISO(4),
   },
+  
+  // Clinica Vitta Queue
   {
-    id: 'c-5',
-    restaurante_id: mockRestauranteId,
-    nome_cliente: 'Carlos Lima',
-    whatsapp: '11955554444',
-    quantidade_pessoas: 3,
-    observacoes: 'Carrinho de bebê',
-    status: 'chegou',
-    horario_entrada: getRelativeTimeISO(30),
-    horario_chamada: getRelativeTimeISO(10),
-    horario_chegada_recepcao: getRelativeTimeISO(2),
-    mesa_destinada_id: 'm-3',
-    numero_mesa_destinada: '3',
-    criado_em: getRelativeTimeISO(30),
-    atualizado_em: getRelativeTimeISO(2),
-  },
-  {
-    id: 'c-6',
-    restaurante_id: mockRestauranteId,
-    nome_cliente: 'Mariana Costa',
-    whatsapp: '11944443333',
-    quantidade_pessoas: 5,
-    observacoes: '',
-    status: 'cancelado',
-    horario_entrada: getRelativeTimeISO(60),
-    criado_em: getRelativeTimeISO(60),
-    atualizado_em: getRelativeTimeISO(40),
-  },
-  {
-    id: 'c-7',
-    restaurante_id: mockRestauranteId,
-    nome_cliente: 'Roberto Dias',
-    whatsapp: '11933332222',
-    quantidade_pessoas: 2,
-    observacoes: '',
-    status: 'ausente',
-    horario_entrada: getRelativeTimeISO(50),
-    criado_em: getRelativeTimeISO(50),
-    atualizado_em: getRelativeTimeISO(35),
-  },
+    id: 'c-201',
+    estabelecimento_id: 'est-2',
+    nome_cliente: 'Alice Nogueira',
+    whatsapp: '11955551111',
+    quantidade_pessoas: 1,
+    observacoes: 'Consulta com Pediatra',
+    status: 'aguardando',
+    horario_entrada: getRelativeTimeISO(10),
+    criado_em: getRelativeTimeISO(10),
+    atualizado_em: getRelativeTimeISO(10),
+  }
 ];
 
 export const initialHistoricoAtendimentos: HistoricoAtendimento[] = [
   {
     id: 'h-1',
+    estabelecimento_id: 'est-1',
     cliente_id: 'c-101',
     mesa_id: 'm-1',
     numero_mesa: '1',
@@ -266,6 +364,7 @@ export const initialHistoricoAtendimentos: HistoricoAtendimento[] = [
   },
   {
     id: 'h-2',
+    estabelecimento_id: 'est-1',
     cliente_id: 'c-102',
     mesa_id: 'm-4',
     numero_mesa: '4',
@@ -275,17 +374,5 @@ export const initialHistoricoAtendimentos: HistoricoAtendimento[] = [
     horario_sentou: getRelativeTimeISO(138),
     tempo_total_espera: 42,
     status_final: 'atendido',
-  },
-  {
-    id: 'h-3',
-    cliente_id: 'c-103',
-    mesa_id: 'm-8',
-    numero_mesa: '8',
-    quantidade_pessoas: 7,
-    horario_entrada_fila: getRelativeTimeISO(210),
-    horario_chamada: getRelativeTimeISO(170),
-    horario_sentou: getRelativeTimeISO(165),
-    tempo_total_espera: 45,
-    status_final: 'atendido',
-  },
+  }
 ];

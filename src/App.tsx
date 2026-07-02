@@ -1,57 +1,53 @@
 import React from 'react';
-import { useQueue } from './context/QueueContext';
-import { Header } from './components/Header';
-import { TelaClienteQRCode } from './screens/TelaClienteQRCode';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { LandingPage } from './screens/LandingPage';
+import { LoginSuperAdmin } from './screens/LoginSuperAdmin';
+import { PainelSuperAdmin } from './screens/PainelSuperAdmin';
+import { LoginFuncionario } from './screens/LoginFuncionario';
 import { TelaCadastroFila } from './screens/TelaCadastroFila';
 import { TelaAcompanhamentoFila } from './screens/TelaAcompanhamentoFila';
 import { PainelRecepcao } from './screens/PainelRecepcao';
 import { PainelGarcom } from './screens/PainelGarcom';
 import { PainelAdmin } from './screens/PainelAdmin';
+import { Header } from './components/Header';
 
 const App: React.FC = () => {
-  const { activeRole, activeClient } = useQueue();
-
-  const renderContent = () => {
-    switch (activeRole) {
-      case 'cliente':
-        // If they scanning QR Code and have not signed up, show signup. Otherwise tracking view.
-        if (activeClient) {
-          return <TelaAcompanhamentoFila />;
-        }
-        return <TelaCadastroFila />;
-        
-      case 'recepcao':
-        return <PainelRecepcao />;
-        
-      case 'garcom':
-        return <PainelGarcom />;
-        
-      case 'admin':
-        return <PainelAdmin />;
-        
-      default:
-        return <TelaClienteQRCode />;
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans antialiased text-slate-800">
-      {/* Global Header with Profile Switcher */}
-      <Header />
-      
-      {/* Dynamic Screen Workspace */}
-      <div className="flex-1">
-        {renderContent()}
-      </div>
+    <BrowserRouter>
+      <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans antialiased text-slate-800">
+        
+        {/* Global Header (Renders dynamically based on route and session) */}
+        <Header />
+        
+        {/* Route switcher */}
+        <div className="flex-1">
+          <Routes>
+            {/* SaaS Home Commercial Landing */}
+            <Route path="/" element={<LandingPage />} />
 
-      {/* Floating Info / simulator helper */}
-      <div className="fixed bottom-4 right-4 z-50 max-w-xs bg-white border border-slate-200 shadow-xl rounded-2xl p-4 hidden md:block">
-        <h4 className="text-xs font-bold text-slate-800 mb-1">🚀 Guia Rápido do Simulador</h4>
-        <p className="text-[10px] text-slate-500 leading-relaxed">
-          Você pode simular toda a jornada. Clique nas abas no topo da tela para alterar entre perfis. Adicione clientes, limpe mesas como garçom e defina regras de tolerância como admin!
-        </p>
+            {/* SaaS Owner Super Admin portal */}
+            <Route path="/super-admin/login" element={<LoginSuperAdmin />} />
+            <Route path="/super-admin" element={<PainelSuperAdmin />} />
+
+            {/* Tenant Establishment Login portal */}
+            <Route path="/r/:slug/login" element={<LoginFuncionario />} />
+
+            {/* Tenant Client Queue portals (QR Code scans) */}
+            <Route path="/r/:slug/cadastro" element={<TelaCadastroFila />} />
+            <Route path="/r/:slug/fila/:clienteId" element={<TelaAcompanhamentoFila />} />
+
+            {/* Tenant Staff Dashboards */}
+            <Route path="/r/:slug/recepcao" element={<PainelRecepcao />} />
+            <Route path="/r/:slug/garcom" element={<PainelGarcom />} />
+            <Route path="/r/:slug/admin" element={<PainelAdmin />} />
+
+            {/* Fallback redirection */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+
       </div>
-    </div>
+    </BrowserRouter>
   );
 };
 

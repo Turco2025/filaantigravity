@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQueue } from '../context/QueueContext';
 import { DashboardRelatorios } from '../components/DashboardRelatorios';
 import { Sidebar } from '../components/Sidebar';
@@ -12,22 +13,29 @@ import {
   Trash2, 
   Settings, 
   Edit2, 
-  Info
+  Info,
+  LogOut,
+  ShieldAlert
 } from 'lucide-react';
 
-
 export const PainelAdmin: React.FC = () => {
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+
   const {
     mesas,
     funcionarios,
-    configuracoesFila,
     historicoAtendimentos,
     configurarRegrasDeEncaixe,
     adicionarMesa,
     editarMesa,
     excluirMesa,
     adicionarFuncionario,
-    excluirFuncionario
+    excluirFuncionario,
+    getEstablishmentBySlug,
+    getEstConfig,
+    sessionUser,
+    logout
   } = useQueue();
 
   const [activeTab, setActiveTab] = useState<'relatorios' | 'mesas' | 'funcionarios' | 'regras'>('relatorios');
@@ -41,14 +49,87 @@ export const PainelAdmin: React.FC = () => {
   const [editingMesaId, setEditingMesaId] = useState<string | null>(null);
 
   const [funcNome, setFuncNome] = useState('');
+  const [funcUser, setFuncUser] = useState('');
+  const [funcSenha, setFuncSenha] = useState('');
   const [funcCargo, setFuncCargo] = useState<'recepcao' | 'garcom' | 'admin'>('garcom');
 
-  // Matching settings state
-  const [p2em4, setP2em4] = useState(configuracoesFila.permitir2em4);
-  const [p4em6, setP4em6] = useState(configuracoesFila.permitir4em6);
-  const [p6em8, setP6em8] = useState(configuracoesFila.permitir6em8);
-  const [diffMax, setDiffMax] = useState(configuracoesFila.diferencaMaximaGrupoMesa);
-  const [tolerancia, setTolerancia] = useState(configuracoesFila.tempoToleranciaChamadoMinutos);
+  const establishment = slug ? getEstablishmentBySlug(slug) : undefined;
+
+  // Matching settings state local copy
+  const [p2em4, setP2em4] = useState(true);
+  const [p4em6, setP4em6] = useState(true);
+  const [p6em8, setP6em8] = useState(true);
+  const [diffMax, setDiffMax] = useState(2);
+  const [tolerancia, setTolerancia] = useState(5);
+
+  // Sync settings when loaded
+  useEffect(() => {
+    if (establishment) {
+      const config = getEstConfig(establishment.id);
+      setP2em4(config.permitir2em4);
+      setP4em6(config.permitir4em6);
+      setP6em8(config.permitir6em8);
+      setDiffMax(config.diferencaMaximaGrupoMesa);
+      setTolerancia(config.tempoToleranciaChamadoMinutos);
+    }
+  }, [establishment]);
+
+  // Authorization barrier check
+  useEffect(() => {
+    if (!establishment) return;
+
+    if (!sessionUser) {
+      navigate(`/r/${slug}/login`);
+      return;
+    }
+
+    const isStaffOfEst = sessionUser.estabelecimento_id === establishment.id;
+    const isAdmin = sessionUser.cargo === 'admin';
+
+    if (!isStaffOfEst || !isAdmin) {
+      // Direct unauthorized staff away
+      navigate(`/r/${slug}/login`);
+    }
+  }, [sessionUser, establishment, slug, navigate]);
+
+  if (!establishment) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center font-sans">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200 shadow-lg space-y-4">
+          <h2 className="text-xl font-bold text-slate-800">Estabelecimento não encontrado</h2>
+          <p className="text-xs text-slate-500">Verifique a URL e tente novamente.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionUser || sessionUser.estabelecimento_id !== establishment.id || sessionUser.cargo !== 'admin') {
+    return (
+      <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-6 text-center bg-slate-50 font-sans">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200 shadow-lg space-y-4">
+          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto animate-bounce" />
+          <h2 className="text-xl font-bold text-slate-800">Acesso Restrito ao Administrador</h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Seu usuário não possui permissão de Administrador para este estabelecimento.
+          </p>
+          <button
+            onClick={() => {
+              logout();
+              navigate(`/r/${slug}/login`);
+            }}
+            className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold animate-pulse"
+          >
+            Fazer Login com Outro Usuário
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Filter lists by establishment
+  const establishmentMesas = mesas.filter(m => m.estabelecimento_id === establishment.id);
+  const establishmentFuncionarios = funcionarios.filter(f => f.estabelecimento_id === establishment.id);
+  const establishmentHistorico = historicoAtendimentos.filter(h => h.estabelecimento_id === establishment.id);
 
   const handleMesaSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +150,7 @@ export const PainelAdmin: React.FC = () => {
       }
       setEditingMesaId(null);
     } else {
-      adicionarMesa({
+      adicionarMesa(establishment.id, {
         numero_mesa: mesaNum,
         nome_ou_identificacao: mesaNome || `Mesa ${mesaNum}`,
         capacidade_maxima: mesaCap,
@@ -99,20 +180,24 @@ export const PainelAdmin: React.FC = () => {
 
   const handleFuncSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!funcNome.trim()) return;
+    if (!funcNome.trim() || !funcUser.trim() || !funcSenha.trim()) return;
 
-    adicionarFuncionario({
+    adicionarFuncionario(establishment.id, {
       nome: funcNome.trim(),
+      username: funcUser.trim().toLowerCase(),
+      senha_hash: funcSenha,
       cargo: funcCargo,
-      permissao: funcCargo === 'admin' ? ['all'] : [funcCargo]
+      permissao: [funcCargo]
     });
 
     setFuncNome('');
+    setFuncUser('');
+    setFuncSenha('');
   };
 
   const handleSaveRegras = (e: React.FormEvent) => {
     e.preventDefault();
-    configurarRegrasDeEncaixe({
+    configurarRegrasDeEncaixe(establishment.id, {
       permitir2em4: p2em4,
       permitir4em6: p4em6,
       permitir6em8: p6em8,
@@ -122,15 +207,39 @@ export const PainelAdmin: React.FC = () => {
     alert('Regras de encaixe salvas com sucesso!');
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate(`/r/${slug}/login`);
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-80px)] animate-in fade-in duration-300">
+    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-80px)] animate-in fade-in duration-300 font-sans">
       
       {/* Sidebar navigation */}
       <Sidebar />
 
       {/* Main Admin Workspace */}
-      <main className="flex-1 p-6 space-y-6">
+      <main className="flex-1 p-6 space-y-6 bg-slate-50/50">
         
+        {/* Admin Header Summary */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-800 leading-none">
+              Painel do Administrador
+            </h2>
+            <span className="text-[10px] text-rose-600 font-bold block mt-1 uppercase tracking-wider">
+              {establishment.nome} • Administrador: {sessionUser.nome}
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-rose-100"
+          >
+            <LogOut className="w-4 h-4" />
+            Sair
+          </button>
+        </div>
+
         {/* Navigation Tabs */}
         <div className="bg-white p-2 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap gap-1">
           <button
@@ -160,7 +269,7 @@ export const PainelAdmin: React.FC = () => {
             }`}
           >
             <Users className="w-4 h-4" />
-            Funcionários
+            Equipe do Local
           </button>
 
           <button
@@ -183,7 +292,7 @@ export const PainelAdmin: React.FC = () => {
               <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">
                 Desempenho Geral do Estabelecimento
               </h2>
-              <DashboardRelatorios historico={historicoAtendimentos} />
+              <DashboardRelatorios historico={establishmentHistorico} />
             </div>
           )}
 
@@ -206,7 +315,7 @@ export const PainelAdmin: React.FC = () => {
                       value={mesaNum}
                       onChange={e => setMesaNum(e.target.value)}
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700"
                     />
                   </div>
 
@@ -217,7 +326,7 @@ export const PainelAdmin: React.FC = () => {
                       placeholder="Ex: Mesa 12 (Janela)"
                       value={mesaNome}
                       onChange={e => setMesaNome(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700"
                     />
                   </div>
 
@@ -230,7 +339,7 @@ export const PainelAdmin: React.FC = () => {
                       value={mesaCap}
                       onChange={e => setMesaCap(Number(e.target.value))}
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700"
                     />
                   </div>
 
@@ -242,7 +351,7 @@ export const PainelAdmin: React.FC = () => {
                       value={mesaSetor}
                       onChange={e => setMesaSetor(e.target.value)}
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700"
                     />
                   </div>
 
@@ -253,7 +362,7 @@ export const PainelAdmin: React.FC = () => {
                       placeholder="Perto do bar, etc."
                       value={mesaObs}
                       onChange={e => setMesaObs(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700"
                     />
                   </div>
 
@@ -276,7 +385,7 @@ export const PainelAdmin: React.FC = () => {
                     )}
                     <button
                       type="submit"
-                      className="flex-1 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition-all"
+                      className="flex-1 py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
                     >
                       {editingMesaId ? 'Salvar' : 'Criar Mesa'}
                     </button>
@@ -287,7 +396,7 @@ export const PainelAdmin: React.FC = () => {
               {/* Table List grid */}
               <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
                 <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">
-                  Lista de Mesas Cadastradas ({mesas.length})
+                  Lista de Mesas Cadastradas ({establishmentMesas.length})
                 </h3>
 
                 <div className="overflow-x-auto">
@@ -303,7 +412,7 @@ export const PainelAdmin: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {mesas.map(m => (
+                      {establishmentMesas.map(m => (
                         <tr key={m.id} className="hover:bg-slate-50/50">
                           <td className="py-3.5 px-2 font-bold text-slate-700">{m.numero_mesa}</td>
                           <td className="py-3.5 px-2 font-medium text-slate-600">{m.nome_ou_identificacao}</td>
@@ -354,7 +463,31 @@ export const PainelAdmin: React.FC = () => {
                       value={funcNome}
                       onChange={e => setFuncNome(e.target.value)}
                       required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Usuário de Login (username)</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: carlos"
+                      value={funcUser}
+                      onChange={e => setFuncUser(e.target.value)}
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Senha de Acesso</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: 123456"
+                      value={funcSenha}
+                      onChange={e => setFuncSenha(e.target.value)}
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700"
                     />
                   </div>
 
@@ -363,7 +496,7 @@ export const PainelAdmin: React.FC = () => {
                     <select
                       value={funcCargo}
                       onChange={e => setFuncCargo(e.target.value as any)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold outline-hidden"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold outline-hidden text-slate-700"
                     >
                       <option value="recepcao">Recepção (Atendente)</option>
                       <option value="garcom">Garçom</option>
@@ -373,9 +506,9 @@ export const PainelAdmin: React.FC = () => {
 
                   <button
                     type="submit"
-                    className="w-full py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition-all"
+                    className="w-full py-2 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
                   >
-                    Cadastrar
+                    Cadastrar Funcionário
                   </button>
                 </form>
               </div>
@@ -383,21 +516,21 @@ export const PainelAdmin: React.FC = () => {
               {/* List */}
               <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-slate-200 shadow-xs">
                 <h3 className="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">
-                  Equipe Cadastrada ({funcionarios.length})
+                  Equipe Cadastrada ({establishmentFuncionarios.length})
                 </h3>
 
                 <div className="divide-y divide-slate-100">
-                  {funcionarios.map(f => (
+                  {establishmentFuncionarios.map(f => (
                     <div key={f.id} className="py-3 flex justify-between items-center text-xs">
                       <div>
                         <span className="font-bold text-slate-700 block">{f.nome}</span>
                         <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                          Cargo: {f.cargo === 'recepcao' ? 'Recepção' : f.cargo === 'garcom' ? 'Garçom' : 'Administrador'}
+                          Usuário: <code>{f.username}</code> • Cargo: {f.cargo === 'recepcao' ? 'Recepção' : f.cargo === 'garcom' ? 'Garçom' : 'Administrador'}
                         </span>
                       </div>
                       <button
                         onClick={() => excluirFuncionario(f.id)}
-                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

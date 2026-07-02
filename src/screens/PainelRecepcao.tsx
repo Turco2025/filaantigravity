@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useQueue } from '../context/QueueContext';
 import { CardClienteFila } from '../components/CardClienteFila';
 import { CardMesa } from '../components/CardMesa';
 import { FiltrosPorQuantidadePessoas } from '../components/FiltrosPorQuantidadePessoas';
 import { Sidebar } from '../components/Sidebar';
-import { Users, LayoutGrid, PlusCircle, Sparkles, X } from 'lucide-react';
+import { Users, LayoutGrid, PlusCircle, Sparkles, X, LogOut, ShieldAlert } from 'lucide-react';
 
 export const PainelRecepcao: React.FC = () => {
+  const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
+  
   const {
     mesas,
     filaClientes,
@@ -15,7 +19,10 @@ export const PainelRecepcao: React.FC = () => {
     confirmarChegadaCliente,
     confirmarClienteSentado,
     removerClienteDaFila,
-    adicionarClienteNaFila
+    adicionarClienteNaFila,
+    getEstablishmentBySlug,
+    sessionUser,
+    logout
   } = useQueue();
 
   const [activeTab, setActiveTab] = useState<'fila' | 'mesas'>('fila');
@@ -28,9 +35,66 @@ export const PainelRecepcao: React.FC = () => {
   const [quantidade, setQuantidade] = useState(2);
   const [observacoes, setObservacoes] = useState('');
 
-  // 1. Filter queue clients
+  const establishment = slug ? getEstablishmentBySlug(slug) : undefined;
+
+  // Authorization barrier check
+  useEffect(() => {
+    if (!establishment) return;
+    
+    if (!sessionUser) {
+      navigate(`/r/${slug}/login`);
+      return;
+    }
+
+    const isStaffOfEst = sessionUser.estabelecimento_id === establishment.id;
+    const hasRole = sessionUser.cargo === 'recepcao' || sessionUser.cargo === 'admin';
+
+    if (!isStaffOfEst || !hasRole) {
+      // Not authorized for this view
+      // If admin, they have access to everything, but receptionist only has access to reception.
+      // If they are a waiter, they can't access reception!
+      navigate(`/r/${slug}/login`);
+    }
+  }, [sessionUser, establishment, slug, navigate]);
+
+  if (!establishment) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center font-sans">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200 shadow-lg space-y-4">
+          <h2 className="text-xl font-bold text-slate-800">Estabelecimento não encontrado</h2>
+          <p className="text-xs text-slate-500">Verifique a URL e tente novamente.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!sessionUser || sessionUser.estabelecimento_id !== establishment.id || (sessionUser.cargo !== 'recepcao' && sessionUser.cargo !== 'admin')) {
+    return (
+      <div className="min-h-[calc(100vh-80px)] flex items-center justify-center p-6 text-center bg-slate-50 font-sans">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200 shadow-lg space-y-4">
+          <ShieldAlert className="w-12 h-12 text-rose-500 mx-auto animate-bounce" />
+          <h2 className="text-xl font-bold text-slate-800">Acesso Não Autorizado</h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            Seu usuário não possui permissão para acessar o Painel da Recepção deste estabelecimento.
+          </p>
+          <button
+            onClick={() => {
+              logout();
+              navigate(`/r/${slug}/login`);
+            }}
+            className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold"
+          >
+            Fazer Login com Outro Usuário
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Filter queue clients (segregated by establishment)
   const activeFila = filaClientes.filter(
-    c => c.status === 'aguardando' || c.status === 'chamado' || c.status === 'chegou'
+    c => c.estabelecimento_id === establishment.id && 
+         (c.status === 'aguardando' || c.status === 'chamado' || c.status === 'chegou')
   );
 
   const filteredFila = activeFila.filter(c => {
@@ -43,19 +107,21 @@ export const PainelRecepcao: React.FC = () => {
     return true;
   });
 
-  // 2. Filter mesas for assignment compatibility selection
-  const mesasDisponiveis = mesas.filter(
+  // Filter mesas (segregated by establishment)
+  const establishmentMesas = mesas.filter(m => m.estabelecimento_id === establishment.id);
+
+  const mesasDisponiveis = establishmentMesas.filter(
     m => m.status_atual === 'livre' || m.status_atual === 'pronta'
   );
 
-  // 3. Find tables that are marked as "pronta" (to highlight matching suggestions)
-  const mesasProntas = mesas.filter(m => m.status_atual === 'pronta');
+  // Find tables marked as pronta
+  const mesasProntas = establishmentMesas.filter(m => m.status_atual === 'pronta');
 
   const handleManualAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nome.trim() || !whatsapp.trim()) return;
 
-    adicionarClienteNaFila(nome.trim(), whatsapp.trim(), quantidade, observacoes.trim());
+    adicionarClienteNaFila(establishment.id, nome.trim(), whatsapp.trim(), quantidade, observacoes.trim());
     
     // Clear
     setNome('');
@@ -65,16 +131,40 @@ export const PainelRecepcao: React.FC = () => {
     setShowAddForm(false);
   };
 
+  const handleLogout = () => {
+    logout();
+    navigate(`/r/${slug}/login`);
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-80px)] animate-in fade-in duration-300">
+    <div className="flex flex-col lg:flex-row min-h-[calc(100vh-80px)] animate-in fade-in duration-300 font-sans">
       
       {/* Sidebar Info */}
       <Sidebar />
 
       {/* Main Content Area */}
-      <main className="flex-1 p-6 space-y-6">
+      <main className="flex-1 p-6 space-y-6 bg-slate-50/50">
         
-        {/* Top Controls: Filter & Manual insertion */}
+        {/* Reception Header summary */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-extrabold text-slate-800 leading-none">
+              Painel da Recepção
+            </h2>
+            <span className="text-[10px] text-indigo-600 font-bold block mt-1 uppercase tracking-wider">
+              {establishment.nome} • Colaborador: {sessionUser.nome}
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-rose-100"
+          >
+            <LogOut className="w-4 h-4" />
+            Sair
+          </button>
+        </div>
+
+        {/* Top Controls */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-3xl border border-slate-200/80 shadow-xs">
           <FiltrosPorQuantidadePessoas 
             selectedFilter={filterSize}
@@ -90,7 +180,7 @@ export const PainelRecepcao: React.FC = () => {
           </button>
         </div>
 
-        {/* Real-time suggested matches panel (If ready tables exist) */}
+        {/* Smart Matches recommendations */}
         {mesasProntas.length > 0 && (
           <div className="p-5 bg-gradient-to-r from-indigo-500/10 to-brand-500/5 rounded-3xl border border-indigo-500/20 shadow-xs space-y-4">
             <h3 className="text-sm font-extrabold text-indigo-900 flex items-center gap-2 uppercase tracking-wider">
@@ -100,7 +190,7 @@ export const PainelRecepcao: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {mesasProntas.map(m => {
-                const suggestion = sugerirClienteCompativel(m);
+                const suggestion = sugerirClienteCompativel(establishment.id, m);
                 return (
                   <div key={m.id} className="bg-white p-4 rounded-2xl border border-indigo-100 flex flex-col justify-between gap-3 shadow-xs">
                     <div className="flex justify-between items-start">
@@ -126,7 +216,7 @@ export const PainelRecepcao: React.FC = () => {
                             <span className="text-slate-500 ml-1.5">({suggestion.quantidade_pessoas}p)</span>
                           </div>
                           <button
-                            onClick={() => chamarCliente(suggestion.id, m.id)}
+                            onClick={() => chamarCliente(establishment.id, suggestion.id, m.id)}
                             className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-indigo-600/10 cursor-pointer"
                           >
                             Chamar Cliente
@@ -145,7 +235,7 @@ export const PainelRecepcao: React.FC = () => {
           </div>
         )}
 
-        {/* Mobile View tabs / Desktop side-by-side layout */}
+        {/* Mobile View tabs */}
         <div className="lg:hidden flex border-b border-slate-200">
           <button
             onClick={() => setActiveTab('fila')}
@@ -163,7 +253,7 @@ export const PainelRecepcao: React.FC = () => {
             }`}
           >
             <LayoutGrid className="w-4 h-4" />
-            Mesas ({mesas.length})
+            Mesas ({establishmentMesas.length})
           </button>
         </div>
 
@@ -183,7 +273,7 @@ export const PainelRecepcao: React.FC = () => {
                 <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                 <p className="text-sm font-semibold">Nenhum cliente na fila</p>
                 <p className="text-xs text-slate-400 mt-1">
-                  Use o botão de "Encaixe Manual" ou simule um cadastro via QR Code.
+                  Use o botão de "Encaixe Manual" para adicionar um.
                 </p>
               </div>
             ) : (
@@ -193,7 +283,7 @@ export const PainelRecepcao: React.FC = () => {
                     key={cliente.id}
                     cliente={cliente}
                     mesasDisponiveis={mesasDisponiveis}
-                    onChamar={chamarCliente}
+                    onChamar={(cId, mId) => chamarCliente(establishment.id, cId, mId)}
                     onChegou={confirmarChegadaCliente}
                     onSentar={confirmarClienteSentado}
                     onRemover={removerClienteDaFila}
@@ -207,18 +297,18 @@ export const PainelRecepcao: React.FC = () => {
           <section className={`lg:col-span-5 space-y-4 ${activeTab === 'mesas' ? 'block' : 'hidden lg:block'}`}>
             <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 px-1">
               <LayoutGrid className="w-4 h-4 text-indigo-500" />
-              Visão das Mesas ({mesas.length})
+              Visão das Mesas ({establishmentMesas.length})
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {mesas.map(mesa => (
+              {establishmentMesas.map(mesa => (
                 <CardMesa
                   key={mesa.id}
                   mesa={mesa}
-                  sugerirClienteCompativel={sugerirClienteCompativel}
-                  onAlterarStatus={() => {}} // Waiter manages table statuses, reception views
+                  sugerirClienteCompativel={(m) => sugerirClienteCompativel(establishment.id, m)}
+                  onAlterarStatus={() => {}} // Reception only views
                   onMarcarPronta={() => {}}
-                  onChamarSugerido={chamarCliente}
+                  onChamarSugerido={(cId, mId) => chamarCliente(establishment.id, cId, mId)}
                   onSentarCliente={confirmarClienteSentado}
                   filaClientes={filaClientes}
                 />
@@ -230,7 +320,7 @@ export const PainelRecepcao: React.FC = () => {
 
       </main>
 
-      {/* Manual Insertion Dialog drawer/modal */}
+      {/* Manual Insertion Drawer */}
       {showAddForm && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl border border-slate-200 w-full max-w-md p-6 relative shadow-2xl animate-in zoom-in-95 duration-200">
@@ -255,7 +345,7 @@ export const PainelRecepcao: React.FC = () => {
                   value={nome}
                   onChange={e => setNome(e.target.value)}
                   required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700"
                 />
               </div>
 
@@ -267,7 +357,7 @@ export const PainelRecepcao: React.FC = () => {
                   value={whatsapp}
                   onChange={e => setWhatsapp(e.target.value)}
                   required
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs font-semibold text-slate-700"
                 />
               </div>
 
@@ -277,7 +367,7 @@ export const PainelRecepcao: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setQuantidade(Math.max(1, quantidade - 1))}
-                    className="w-8 h-8 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                    className="w-8 h-8 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700"
                   >
                     -
                   </button>
@@ -285,7 +375,7 @@ export const PainelRecepcao: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setQuantidade(quantidade + 1)}
-                    className="w-8 h-8 bg-white border border-slate-200 rounded-lg text-xs font-bold"
+                    className="w-8 h-8 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700"
                   >
                     +
                   </button>
@@ -293,13 +383,13 @@ export const PainelRecepcao: React.FC = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Observações (Cadeirante, Varanda...)</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Observações</label>
                 <input
                   type="text"
                   placeholder="Ex: Precisa de cadeirão, prefere varanda"
                   value={observacoes}
                   onChange={e => setObservacoes(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-xs text-slate-700"
                 />
               </div>
 
