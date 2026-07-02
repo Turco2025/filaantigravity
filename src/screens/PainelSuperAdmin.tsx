@@ -21,6 +21,7 @@ export const PainelSuperAdmin: React.FC = () => {
     estabelecimentos, 
     adicionarEstabelecimento,
     excluirEstabelecimento,
+    adicionarFuncionario,
     mesas,
     filaClientes,
     resetarSistema
@@ -32,6 +33,21 @@ export const PainelSuperAdmin: React.FC = () => {
   const [adminPass, setAdminPass] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Collaborator form states
+  const [colabEstId, setColabEstId] = useState('');
+  const [colabNome, setColabNome] = useState('');
+  const [colabUser, setColabUser] = useState('');
+  const [colabPass, setColabPass] = useState('');
+  const [colabCargo, setColabCargo] = useState<'recepcao' | 'garcom' | 'admin'>('garcom');
+  const [colabSuccess, setColabSuccess] = useState<string | null>(null);
+  const [colabError, setColabError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (estabelecimentos.length > 0 && !colabEstId) {
+      setColabEstId(estabelecimentos[0].id);
+    }
+  }, [estabelecimentos, colabEstId]);
 
   // Authorization barrier check
   useEffect(() => {
@@ -64,6 +80,34 @@ export const PainelSuperAdmin: React.FC = () => {
     } else {
       setError(result.error || 'Erro ao registrar.');
     }
+  };
+
+  const handleRegisterColab = (e: React.FormEvent) => {
+    e.preventDefault();
+    setColabError(null);
+    setColabSuccess(null);
+
+    if (!colabEstId) {
+      setColabError('Selecione um estabelecimento.');
+      return;
+    }
+    if (!colabNome.trim() || !colabUser.trim() || !colabPass.trim()) {
+      setColabError('Preencha todos os campos do colaborador.');
+      return;
+    }
+
+    adicionarFuncionario(colabEstId, {
+      nome: colabNome.trim(),
+      username: colabUser.trim().toLowerCase(),
+      senha_hash: colabPass,
+      cargo: colabCargo,
+      permissao: [colabCargo]
+    });
+
+    setColabSuccess(`Colaborador "${colabNome}" cadastrado com sucesso!`);
+    setColabNome('');
+    setColabUser('');
+    setColabPass('');
   };
 
   const handleLogout = () => {
@@ -156,94 +200,204 @@ export const PainelSuperAdmin: React.FC = () => {
         {/* Row 2: Add and Lists */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           
-          {/* Add Establishment Form */}
-          <div className="lg:col-span-4 bg-slate-850 p-6 rounded-3xl border border-slate-800 h-fit space-y-4 shadow-xl">
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5 uppercase tracking-wider">
-              <PlusCircle className="w-4 h-4 text-brand-400" />
-              Cadastrar Estabelecimento
-            </h3>
+          {/* Left Column: Stacked Forms */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* Add Establishment Form */}
+            <div className="bg-slate-850 p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5 uppercase tracking-wider">
+                <PlusCircle className="w-4 h-4 text-brand-400" />
+                Cadastrar Estabelecimento
+              </h3>
 
-            {error && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold rounded-xl text-center">
-                {error}
-              </div>
-            )}
+              {error && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold rounded-xl text-center">
+                  {error}
+                </div>
+              )}
 
-            {success && (
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-xl text-center">
-                {success}
-              </div>
-            )}
+              {success && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-xl text-center">
+                  {success}
+                </div>
+              )}
 
-            <form onSubmit={handleRegisterEst} className="space-y-4">
-              
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Nome do Estabelecimento
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: Pizzaria Forno de Ouro"
-                  value={nome}
-                  onChange={e => setNome(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
-                />
-              </div>
+              <form onSubmit={handleRegisterEst} className="space-y-4">
+                
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Nome do Estabelecimento
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Pizzaria Forno de Ouro"
+                    value={nome}
+                    onChange={e => setNome(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
+                  />
+                </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  URL Slug (Identificador Único)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: forno-de-ouro"
-                  value={slug}
-                  onChange={e => setSlug(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
-                />
-                <span className="text-[9px] text-slate-500 block leading-snug">
-                  Será usado nas rotas. Ex: <code>/r/forno-de-ouro</code>
-                </span>
-              </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    URL Slug (Identificador Único)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: forno-de-ouro"
+                    value={slug}
+                    onChange={e => setSlug(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
+                  />
+                  <span className="text-[9px] text-slate-500 block leading-snug">
+                    Será usado nas rotas. Ex: <code>/r/forno-de-ouro</code>
+                  </span>
+                </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Usuário Admin do Estabelecimento
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: admin-forno"
-                  value={adminUser}
-                  onChange={e => setAdminUser(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
-                />
-              </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Usuário Admin do Estabelecimento
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: admin-forno"
+                    value={adminUser}
+                    onChange={e => setAdminUser(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
+                  />
+                </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Senha Admin do Estabelecimento
-                </label>
-                <input
-                  type="password"
-                  placeholder="Defina a senha"
-                  value={adminPass}
-                  onChange={e => setAdminPass(e.target.value)}
-                  required
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
-                />
-              </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Senha Admin do Estabelecimento
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Defina a senha"
+                    value={adminPass}
+                    onChange={e => setAdminPass(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
+                  />
+                </div>
 
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 cursor-pointer"
-              >
-                Registrar Estabelecimento
-              </button>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-500/20 cursor-pointer"
+                >
+                  Registrar Estabelecimento
+                </button>
 
-            </form>
+              </form>
+            </div>
+
+            {/* Add Collaborator Form */}
+            <div className="bg-slate-850 p-6 rounded-3xl border border-slate-800 space-y-4 shadow-xl">
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5 uppercase tracking-wider">
+                <PlusCircle className="w-4 h-4 text-brand-400" />
+                Cadastrar Colaborador
+              </h3>
+
+              {colabError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold rounded-xl text-center">
+                  {colabError}
+                </div>
+              )}
+
+              {colabSuccess && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-xl text-center">
+                  {colabSuccess}
+                </div>
+              )}
+
+              {estabelecimentos.length === 0 ? (
+                <p className="text-xs text-slate-500 italic">Cadastre primeiro um estabelecimento para liberar.</p>
+              ) : (
+                <form onSubmit={handleRegisterColab} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Estabelecimento Destinado
+                    </label>
+                    <select
+                      value={colabEstId}
+                      onChange={e => setColabEstId(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white font-semibold"
+                    >
+                      {estabelecimentos.map(est => (
+                        <option key={est.id} value={est.id}>{est.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Nome do Colaborador
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Carlos Silva"
+                      value={colabNome}
+                      onChange={e => setColabNome(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Usuário de Login (username)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: carlos-garcom"
+                      value={colabUser}
+                      onChange={e => setColabUser(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Senha de Acesso
+                    </label>
+                    <input
+                      type="password"
+                      placeholder="Senha do colaborador"
+                      value={colabPass}
+                      onChange={e => setColabPass(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      Cargo / Função
+                    </label>
+                    <select
+                      value={colabCargo}
+                      onChange={e => setColabCargo(e.target.value as any)}
+                      className="w-full px-3 py-2 bg-slate-950 border border-slate-700 focus:border-brand-500 rounded-xl text-xs outline-hidden text-white font-semibold"
+                    >
+                      <option value="recepcao">Recepção (Atendente)</option>
+                      <option value="garcom">Garçom</option>
+                      <option value="admin">Administrador do Local</option>
+                    </select>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-600/20 cursor-pointer"
+                  >
+                    Registrar Colaborador
+                  </button>
+                </form>
+              )}
+            </div>
+
           </div>
 
           {/* List of active establishments */}
